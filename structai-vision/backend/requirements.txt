@@ -1,0 +1,17 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+sqlalchemy==2.0.*
+geoalchemy2==0.15.*
+psycopg2-binary==2.9.*
+pydantic-settings==2.6.*
+python-multipart==0.0.*
+passlib[bcrypt]==1.7.*
+python-jose[cryptography]==3.3.*
+celery[redis]==5.4.*
+redis==5.*
+minio==7.2.*
+pyodm==1.5.*
+opencv-python-headless==4.10.*
+numpy<2
+trimesh==4.*
+shapely==2.*
