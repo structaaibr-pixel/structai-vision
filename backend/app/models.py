@@ -49,6 +49,7 @@ class Capture(Base):
                                                   default=CaptureStatus.pending)
     image_count: Mapped[int] = mapped_column(Integer, default=0)
     has_gcp: Mapped[bool] = mapped_column(default=False)
+    has_video: Mapped[bool] = mapped_column(default=False, server_default="false")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # ex.: transcrição Whisper
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

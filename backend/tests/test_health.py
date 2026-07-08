@@ -1,12 +1,14 @@
-"""Smoke test — roda sem infra externa (não toca banco/MinIO no import)."""
+"""Smoke tests — rodam sem infra externa (o lifespan não é executado)."""
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 
 def test_health():
-    with TestClient(app, raise_server_exceptions=False) as _:
-        pass  # startup exige db/minio; health é testado no ambiente docker
+    client = TestClient(app)  # sem `with` → lifespan (migração/MinIO) não roda
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
 
 
 def test_openapi_schema_builds():

@@ -2,7 +2,7 @@
 
 Medição de m² de fachadas prediais a partir de fotos/vídeo/drone, para quantitativo de orçamento de reformas.
 
-**Leia primeiro:** `docs/roadmap.md` (arquitetura, riscos, stack) e `docs/fable5-guia-execucao.md` (como evoluir este código sessão por sessão com o Fable 5).
+**Leia primeiro:** `ROADMAP.md` (estado do código + fila de execução), `docs/roadmap.md` (arquitetura, riscos, stack) e `docs/fable5-guia-execucao.md` (como evoluir este código sessão por sessão com o Fable 5).
 
 ---
 
@@ -12,9 +12,10 @@ Medição de m² de fachadas prediais a partir de fotos/vídeo/drone, para quant
 |---|---|---|
 | **0** — Harness de validação | Script standalone: fotos/vídeo + GCP → ODM → área/altura/perímetro | `scripts/validate_measurement.py` |
 | **1** — Arquitetura base | FastAPI + PostgreSQL/PostGIS + Redis/Celery + MinIO + NodeODM, tudo em Docker | `infra/docker-compose.yml`, `backend/` |
-| **2** — Captura (lado servidor) | Upload de fotos + GCP + notas, com validações | `backend/app/routers/captures.py` |
-| **3** — Pipeline de reconstrução | Task Celery: filtro de nitidez → NodeODM → malha → medição → banco, com tratamento de falha | `backend/app/workers/reconstruction.py` |
+| **2** — Captura (lado servidor) | Upload de fotos **e/ou vídeo** + GCP + notas, em streaming, com validações | `backend/app/routers/captures.py` |
+| **3** — Pipeline de reconstrução | Task Celery: frames do vídeo → filtro de nitidez → NodeODM → malha → medição → banco, com tratamento de falha | `backend/app/workers/reconstruction.py`, `backend/app/preprocess.py` |
 | **5** (parcial) — Measure Engine v0 | Área de superfície bruta, altura, perímetro | `backend/app/measure/engine.py` |
+| Etapa 1 — Endurecimento | Migrações Alembic, upload em streaming, vídeo no servidor, CI (ruff + pytest) | `backend/alembic/`, `.github/workflows/ci.yml` |
 
 **Ainda não implementado** (seguir o guia, nesta ordem): app mobile de captura (Sessão 2 cliente), YOLO/SAM2 (4), área líquida (5), quantitativos (6), patologias (7), Digital Twin (8), RAG de orçamento (9), dashboard (10+).
 
@@ -53,6 +54,8 @@ docker compose -f infra/docker-compose.yml up --build
 
 Serviços: API em `:8000` (docs em `/docs`), MinIO console em `:9001`, NodeODM em `:3000`.
 
+**Migrações:** o backend roda `alembic upgrade head` automaticamente no startup. Banco de dev criado **antes** do Alembic (via `create_all`): rode uma vez `docker compose -f infra/docker-compose.yml exec backend alembic stamp 0001` e reinicie.
+
 **GPU:** sem GPU NVIDIA a reconstrução é muito mais lenta (risco 2.3 do roadmap). Para usar GPU, troque a imagem para `opendronemap/nodeodm:gpu` e descomente o bloco `deploy` no compose.
 
 ## Fluxo da API
@@ -71,9 +74,23 @@ curl -X POST :8000/buildings/1/captures -H "Authorization: Bearer $TOKEN" \
   -F source=mixed -F gcp=@gcp_list.txt \
   -F images=@f1.jpg -F images=@f2.jpg ...   # 30+ fotos, 70-80% sobreposição
 
+# ou por vídeo (frames extraídos no servidor, 1 a cada 15)
+curl -X POST :8000/buildings/1/captures -H "Authorization: Bearer $TOKEN" \
+  -F source=phone -F gcp=@gcp_list.txt -F video=@fachada.mp4
+
 # acompanhar:  GET /captures/{id}        (pending → processing → completed|failed)
 # resultado:   GET /captures/{id}/measurement
 ```
+
+## Testes e CI
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check . && pytest
+```
+
+Os testes não dependem de Postgres/MinIO/Redis (SQLite descartável + fakes) — é o mesmo fluxo do CI (`.github/workflows/ci.yml`), que roda a cada push/PR.
 
 ## Decisões de arquitetura (não mudar sem motivo)
 
