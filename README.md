@@ -41,6 +41,8 @@ python scripts/validate_measurement.py --video ./fachada.mp4 --gcp ./gcp_list.tx
 
 Compare o resultado com a medição manual em **2-3 prédios diferentes**. Defina com o comercial o erro aceitável (ex.: ±2-5%). Só avance quando bater.
 
+**Sem prédio disponível agora?** O gate foi dividido em duas fases (ver `docs/calibracao.md`): a Fase A calibra o pipeline com datasets públicos que têm GCPs topográficos — `python scripts/calibrate.py --dataset copr` — e destrava o desenvolvimento; a Fase B (prédios reais + trena) continua obrigatória antes de usar números comercialmente, usando o mesmo script com `--images/--gcp/--truth`.
+
 **Sobre o GCP:** sem ele, o modelo sai em escala relativa e o m² não vale nada. As coordenadas não precisam ser GPS reais — distâncias locais medidas com trena, consistentes entre si, funcionam. Formato no cabeçalho do próprio script.
 
 ---

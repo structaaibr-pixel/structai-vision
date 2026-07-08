@@ -26,7 +26,8 @@ Coloque este arquivo na raiz do repositório e anexe-o como contexto em **toda**
 | — | API de captura (upload fotos + GCP + notas) | 2 (servidor) | ✅ implementado |
 | — | Pipeline assíncrono de reconstrução | 3 | ✅ implementado |
 | — | Measure Engine v0 (área bruta, altura, perímetro) | 5 (parcial) | ✅ implementado |
-| **0** | **Validação de campo (2-3 prédios reais)** | **0** | ⛔ **BLOQUEANTE — pendente** |
+| **0-A** | **Calibração com datasets públicos (GCPs topográficos)** | **0** | 🔧 harness pronto (`scripts/calibrate.py`) — **rodar e commitar o relatório** |
+| **0-B** | **Validação de campo (2-3 prédios reais, trena/laser)** | **0** | ⏳ contínua — não bloqueia dev; **obrigatória antes de uso comercial dos números** |
 | 1 | Endurecimento da base (Alembic, CI, streaming, vídeo) | — | ✅ implementado |
 | 2 | App Flutter de captura + áudio/Whisper | 2 (cliente) | 🔜 pendente |
 | 3 | Segmentação (YOLO-World + SAM2) | 4 | 🔜 pendente |
@@ -54,9 +55,13 @@ structai-vision/
 ├── .github/workflows/ci.yml        ← CI: ruff + pytest a cada push/PR
 ├── docs/
 │   ├── roadmap.md
-│   └── fable5-guia-execucao.md
+│   ├── fable5-guia-execucao.md
+│   ├── calibracao.md               ← metodologia do gate (Fases A/B) + decisão
+│   └── calibracao/relatorios/      ← relatórios de calibração (commitados)
 ├── scripts/
-│   └── validate_measurement.py     ← Sessão 0: fotos/vídeo + GCP → ODM → medidas
+│   ├── validate_measurement.py     ← Sessão 0: fotos/vídeo + GCP → ODM → medidas
+│   ├── calibrate.py                ← Gate 0-A/0-B: datasets públicos e de campo → veredito
+│   └── calibration_datasets.json   ← registro dos datasets (baixados em runtime)
 ├── infra/
 │   └── docker-compose.yml          ← db, redis, minio, nodeodm, backend, worker
 └── backend/
@@ -134,7 +139,7 @@ Todo objeto vive sob o namespace da captura: `captures/{capture_id}/images/…`,
 4. **Identificadores de código em inglês; mensagens de erro e docs em pt-BR** (padrão já estabelecido).
 5. **Mudança de schema só via Alembic** (em vigor desde a Etapa 1 — nunca mais editar tabela na mão).
 6. **Todo endpoint/task novo nasce com teste** em `backend/tests/`.
-7. **Precisão acima de conveniência**: qualquer número em m² exposto ao usuário precisa ter sido validado contra medição real pelo menos uma vez (ver Gate de campo).
+7. **Precisão acima de conveniência**: qualquer número em m² exposto ao usuário precisa ter sido validado contra medição real pelo menos uma vez (ver Gate de medição, seção 6).
 
 ---
 
@@ -149,9 +154,11 @@ Todo objeto vive sob o namespace da captura: `captures/{capture_id}/images/…`,
 
 ---
 
-## 6. ⛔ Gate de campo (antes de investir nas Etapas 3+)
+## 6. Gate de medição — em duas fases (decisão de jul/2026, ver `docs/calibracao.md`)
 
-**Nada de visão computacional avançada antes disto.** Rodar `scripts/validate_measurement.py` em 2-3 prédios reais, com GCPs medidos a trena/laser, e comparar com medição manual. Definir com o comercial o erro aceitável (ex.: ±2-5%). Se não bater, o problema está no protocolo de captura/calibração — voltar ao `docs/roadmap.md`, seção 2, antes de qualquer código novo. As Etapas 1 e 2 podem andar em paralelo ao gate; as demais, não.
+**Fase A — calibração com datasets públicos (destrava o desenvolvimento).** Rodar `scripts/calibrate.py --dataset copr` (e depois `bellus`) com NodeODM de pé: datasets públicos com GCPs topográficos medidos em campo por terceiros validam o pipeline e a escala métrica (RMS 3D dos resíduos de GCP ≤ 0,05 m). Relatórios em `docs/calibracao/relatorios/` — commitá-los. **Com a Fase A aprovada, as Etapas 3+ podem ser desenvolvidas.**
+
+**Fase B — validação de campo (contínua, obrigatória antes de uso comercial).** O mesmo harness aceita dados próprios: `scripts/calibrate.py --name predio_x --images … --gcp … --truth truth.json` com medidas manuais de trena/laser. Definir com o comercial o erro aceitável (ex.: ±2-5%). Cada obra medida vira ponto de calibração — é essa série que comprova a margem de erro real. Se não bater, o problema está no protocolo de captura/calibração — voltar ao `docs/roadmap.md`, seção 2. **As etapas de precisão (4, 6, 7) só recebem ✅ com comparação de campo (Fase B), e nenhum número de m² vai para cliente sem ela.**
 
 ---
 

@@ -5,4 +5,4 @@ exclude = ["alembic/versions"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "../scripts"]

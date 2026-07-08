@@ -1,0 +1,41 @@
+{
+  "_doc": "Registro de datasets de calibração (ver docs/calibracao.md). Datasets públicos são baixados em runtime — nunca commitados no repo (convenção 1 do ROADMAP). Adicione capturas próprias de canteiro como entradas type=field apontando para pastas locais.",
+  "datasets": [
+    {
+      "name": "copr",
+      "type": "public",
+      "description": "Coal Oil Point Reserve (Goleta, CA, 2009) — 41 fotos aéreas + 5 GCPs topográficos documentados",
+      "url": "https://github.com/OpenDroneMap/odm_data_copr/archive/refs/heads/master.zip",
+      "license": "CC BY-SA 4.0 — Michele M. Tobias & Alex Mandel",
+      "source": "https://github.com/OpenDroneMap/odm_data_copr",
+      "notes": "menor dataset público com GCP (~150 MB) — comece por ele"
+    },
+    {
+      "name": "boruszyn",
+      "type": "public",
+      "description": "Boruszyn (Polônia, 2012) — 46 fotos KAP + GCPs",
+      "url": "https://github.com/merkato/odm_boruszyn_kap/archive/refs/heads/master.zip",
+      "license": "CC-BY — Andrew Zaborowski / OpenStreetMap-PL",
+      "source": "https://github.com/merkato/odm_boruszyn_kap",
+      "notes": "GCP em projeção polonesa (PUWG1992) — se o ODM recusar a projeção, use copr/bellus"
+    },
+    {
+      "name": "bellus",
+      "type": "public",
+      "description": "Bellus — 122 fotos de drone + GCPs",
+      "url": "https://github.com/OpenDroneMap/odm_data_bellus/archive/refs/heads/master.zip",
+      "license": "CC0 1.0",
+      "source": "https://github.com/OpenDroneMap/odm_data_bellus",
+      "notes": "maior (~700 MB) — use depois do copr para confirmar consistência"
+    }
+  ],
+  "_field_template": {
+    "name": "predio_alfa",
+    "type": "field",
+    "description": "Prédio Alfa — captura própria no canteiro (celular + trena laser)",
+    "images_dir": "./capturas/predio_alfa/fotos",
+    "gcp_file": "./capturas/predio_alfa/gcp_list.txt",
+    "truth_file": "./capturas/predio_alfa/truth.json",
+    "license": "dados próprios"
+  }
+}
