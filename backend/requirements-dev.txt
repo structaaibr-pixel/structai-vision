@@ -1,0 +1,4 @@
+# Ferramentas de desenvolvimento/CI — não entram na imagem Docker.
+ruff==0.8.*
+pytest==8.*
+httpx==0.28.*

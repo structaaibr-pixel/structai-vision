@@ -1,9 +1,12 @@
 """Camada fina sobre o MinIO (compatível com S3)."""
 import io
+from typing import BinaryIO
 
 from minio import Minio
 
 from .config import settings
+
+STREAM_PART_SIZE = 10 * 1024 * 1024  # 10 MiB por parte no upload multipart
 
 _client = Minio(
     settings.minio_endpoint,
@@ -21,6 +24,14 @@ def ensure_bucket() -> None:
 def put_bytes(key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
     _client.put_object(settings.minio_bucket, key, io.BytesIO(data), len(data),
                        content_type=content_type)
+    return key
+
+
+def put_stream(key: str, stream: BinaryIO,
+               content_type: str = "application/octet-stream") -> str:
+    """Upload em chunks sem carregar o arquivo inteiro em memória (débito D2)."""
+    _client.put_object(settings.minio_bucket, key, stream, length=-1,
+                       part_size=STREAM_PART_SIZE, content_type=content_type)
     return key
 
 

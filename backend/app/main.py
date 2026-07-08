@@ -1,27 +1,31 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from . import storage
-from .database import Base, engine
+from .migrations import run_migrations
 from .routers import auth, buildings, captures, measurements
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    run_migrations()  # alembic upgrade head — schema só muda via migração (D1)
+    storage.ensure_bucket()
+    yield
+
 
 app = FastAPI(
     title="StructAI Vision API",
-    version="0.1.0",
+    version="0.2.0",
     description="Medição de m² de fachadas via fotogrametria (Sessões 0-3). "
                 "Arquitetura completa: docs/roadmap.md",
+    lifespan=lifespan,
 )
-
-
-@app.on_event("startup")
-def startup() -> None:
-    # scaffold: create_all direto; migrar p/ Alembic quando o schema estabilizar
-    Base.metadata.create_all(engine)
-    storage.ensure_bucket()
 
 
 @app.get("/health", tags=["infra"])
 def health() -> dict:
-    return {"status": "ok", "service": "structai-vision", "version": "0.1.0"}
+    return {"status": "ok", "service": "structai-vision", "version": "0.2.0"}
 
 
 app.include_router(auth.router)

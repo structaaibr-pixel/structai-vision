@@ -1,8 +1,9 @@
 """Sessão 3 — Pipeline assíncrono de reconstrução.
 
 Fluxo por captura:
-  MinIO (imagens + GCP) → filtro de nitidez → NodeODM → malha 3D
-  → Measure Engine → Measurement no banco → artefatos de volta no MinIO
+  MinIO (imagens + vídeo + GCP) → frames do vídeo → filtro de nitidez
+  → NodeODM → malha 3D → Measure Engine → Measurement no banco
+  → artefatos de volta no MinIO
 
 Falhas comuns de fachada (pouca sobreposição, parede sem textura, fotos
 borradas) devem terminar em status=failed com mensagem clara — nunca travar
@@ -12,22 +13,13 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import cv2
-
 from ..config import settings
 from ..database import SessionLocal
 from ..measure.engine import measure_mesh
 from ..models import Capture, CaptureStatus, Measurement
+from ..preprocess import MIN_USABLE_IMAGES, extract_frames, filter_blurry
 from .. import storage
 from .celery_app import celery
-
-MIN_SHARPNESS = 100.0
-MIN_USABLE_IMAGES = 20
-
-
-def _is_sharp(path: Path) -> bool:
-    img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-    return img is not None and cv2.Laplacian(img, cv2.CV_64F).var() >= MIN_SHARPNESS
 
 
 def _find_mesh(assets: Path) -> Path | None:
@@ -36,6 +28,26 @@ def _find_mesh(assets: Path) -> Path | None:
         if (assets / rel).exists():
             return assets / rel
     return None
+
+
+def _download_video_frames(capture_id: int, workdir: Path, img_dir: Path) -> int:
+    """Baixa o vídeo da captura (se houver) e extrai frames para img_dir."""
+    video_keys = storage.list_keys(f"captures/{capture_id}/video/")
+    if not video_keys:
+        return 0
+    video_dir = workdir / "video"
+    video_dir.mkdir()
+    total = 0
+    for k in video_keys:
+        local = video_dir / Path(k).name
+        storage.download_to(k, str(local))
+        frames = extract_frames(local, img_dir)
+        if not frames:
+            raise RuntimeError(
+                f"nenhum frame extraído do vídeo {Path(k).name} — arquivo "
+                "corrompido ou formato não suportado. Reenvie em MP4 (H.264).")
+        total += len(frames)
+    return total
 
 
 @celery.task(name="reconstruction.run", bind=True)
@@ -50,18 +62,18 @@ def run_reconstruction(self, capture_id: int) -> None:
 
     workdir = Path(tempfile.mkdtemp(prefix=f"structai_cap{capture_id}_"))
     try:
-        # 1. baixar imagens do MinIO
+        # 1. baixar imagens do MinIO + extrair frames do vídeo (se houver)
         img_dir = workdir / "images"
         img_dir.mkdir()
         keys = storage.list_keys(f"captures/{capture_id}/images/")
-        if not keys:
-            raise RuntimeError("nenhuma imagem encontrada para esta captura")
         for k in keys:
             storage.download_to(k, str(img_dir / Path(k).name))
+        frame_count = _download_video_frames(capture_id, workdir, img_dir)
+        if not keys and not frame_count:
+            raise RuntimeError("nenhuma imagem ou vídeo encontrado para esta captura")
 
         # 2. filtrar borradas (frames ruins quebram a reconstrução)
-        images = [p for p in sorted(img_dir.iterdir()) if _is_sharp(p)]
-        removed = len(keys) - len(images)
+        images, removed = filter_blurry(sorted(img_dir.iterdir()))
         if len(images) < MIN_USABLE_IMAGES:
             raise RuntimeError(
                 f"apenas {len(images)} imagens nítidas ({removed} borradas "
@@ -115,6 +127,7 @@ def run_reconstruction(self, capture_id: int) -> None:
             mesh_key=mesh_key,
             pointcloud_key=pc_key,
             raw={**result, "blurry_removed": removed,
+                 "video_frames": frame_count,
                  "gcp_used": bool(gcp_keys)},
         ))
         capture.status = CaptureStatus.completed

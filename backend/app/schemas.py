@@ -33,6 +33,7 @@ class CaptureOut(BaseModel):
     status: CaptureStatus
     image_count: int
     has_gcp: bool
+    has_video: bool = False
     error: str | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
