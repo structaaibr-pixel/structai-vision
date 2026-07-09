@@ -92,6 +92,9 @@ def test_download_dataset_extracts_and_locates(tmp_path):
     for i in range(3):
         (src / f"f{i}.jpg").write_bytes(b"fake")
     (src.parent / "gcp_list.txt").write_text("EPSG:31983\n")
+    # thumbnail solto na raiz (como o copr.png do dataset copr): NÃO pode
+    # entrar na lista de fotos da reconstrução
+    (src.parent / "thumbnail.png").write_bytes(b"fake")
     zip_path = tmp_path / "ds.zip"
     with zipfile.ZipFile(zip_path, "w") as zf:
         for p in (tmp_path / "src").rglob("*"):
@@ -102,6 +105,7 @@ def test_download_dataset_extracts_and_locates(tmp_path):
     root = calibrate.download_dataset(entry, tmp_path / "cache")
     images, gcp = calibrate.locate_inputs(root)
     assert len(images) == 3
+    assert all(p.parent.name == "images" for p in images)
     assert gcp is not None and gcp.name == "gcp_list.txt"
 
 

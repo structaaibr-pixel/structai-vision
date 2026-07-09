@@ -162,10 +162,18 @@ def download_dataset(entry: dict, cache_dir: Path) -> Path:
 
 
 def locate_inputs(root: Path) -> tuple[list[Path], Path | None]:
-    """Encontra as imagens e o gcp_list.txt em qualquer nível do dataset."""
-    images = sorted(p for p in root.rglob("*")
-                    if p.is_file() and p.suffix.lower() in IMAGE_EXTS)
-    gcp = next((p for p in root.rglob("gcp_list.txt")), None)
+    """Encontra as fotos e o gcp_list.txt em qualquer nível do dataset.
+
+    Usa apenas o diretório com MAIS imagens: repositórios de dataset costumam
+    ter thumbnails/ortofotos soltos na raiz (ex.: copr.png) que contaminariam
+    a reconstrução se entrassem junto.
+    """
+    by_dir: dict[Path, list[Path]] = {}
+    for p in root.rglob("*"):
+        if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
+            by_dir.setdefault(p.parent, []).append(p)
+    images = sorted(max(by_dir.values(), key=len)) if by_dir else []
+    gcp = next(iter(root.rglob("gcp_list.txt")), None)
     return images, gcp
 
 
